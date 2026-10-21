@@ -1,0 +1,46 @@
+name: Compilar ejecutable Windows
+
+on:
+  push:
+    paths:
+      - "ControlPlanos/**"
+      - ".github/workflows/build-exe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: pip install -r ControlPlanos/requirements.txt
+
+      - name: Compilar con PyInstaller
+        working-directory: ControlPlanos
+        run: pyinstaller --onefile --windowed --name ControlPlanos control_planos.py
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: ControlPlanos-exe
+          path: ControlPlanos/dist/ControlPlanos.exe
+
+      - name: Publicar en Releases (descarga directa)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ultima-version --yes --cleanup-tag || true
+          gh release create ultima-version ControlPlanos/dist/ControlPlanos.exe \
+            --target "${{ github.sha }}" \
+            --title "Control de Planos - última versión" \
+            --notes "Ejecutable compilado automáticamente desde ${{ github.ref_name }} (${{ github.sha }})." \
+            --prerelease
